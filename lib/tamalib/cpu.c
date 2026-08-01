@@ -1683,11 +1683,30 @@ void cpu_reset(void)
 	cpu_sync_ref_timestamp();
 }
 
+/* Decode LUT: maps each 12-bit op code to its index in ops[], replacing the
+ * linear table scan in cpu_step() (the scan dominated emulation cost and
+ * capped fast-forward speed). Unknown codes map to the terminator entry so
+ * the existing error path still triggers.
+ */
+static u8_t op_lut[1 << 12];
+
 bool_t cpu_init(const u12_t *program, breakpoint_t *breakpoints, u32_t freq)
 {
+	u13_t code;
+	u8_t j;
+
 	g_program = program;
 	g_breakpoints = breakpoints;
 	ts_freq = freq;
+
+	for (code = 0; code < (1 << 12); code++) {
+		for (j = 0; ops[j].log != NULL; j++) {
+			if (((u12_t)code & ops[j].mask) == ops[j].code) {
+				break;
+			}
+		}
+		op_lut[code] = j;
+	}
 
 	cpu_reset();
 
@@ -1708,11 +1727,7 @@ int cpu_step(void)
 	op = g_program[pc];
 
 	/* Lookup the OP code */
-	for (i = 0; ops[i].log != NULL; i++) {
-		if ((op & ops[i].mask) == ops[i].code) {
-			break;
-		}
-	}
+	i = op_lut[op];
 
 	if (ops[i].log == NULL) {
 		g_hal->log(LOG_ERROR, "Unknown op-code 0x%X (pc = 0x%04X)\n", op, pc);
