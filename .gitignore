@@ -1,0 +1,11 @@
+# ROM del Tamagotchi P1 — copyright de Bandai, NUNCA subir al repo
+rom.bin
+tama.b
+*.rom
+
+# Builds y artefactos de ufbt
+dist/debug/
+.ufbt/
+
+# Editor
+.vscode/
