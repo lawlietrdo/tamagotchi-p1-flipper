@@ -29,6 +29,7 @@ typedef struct {
     uint8_t volume; // 0=mute, 1=low, 2=high
     bool vibrate;
     uint32_t reset_armed_tick; // nonzero = first Down-long seen, awaiting confirm
+    volatile bool reset_pending; // worker re-inits the emulator at next safe point
 } TamaApp;
 
 typedef enum {

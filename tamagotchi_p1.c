@@ -361,6 +361,21 @@ static int32_t tamagotchi_p1_worker(void* context) {
             running = false;
             continue;
         }
+        if(g_ctx->reset_pending) {
+            // Full re-init, identical to app start: the only reset path that
+            // reliably boots the ROM. Safe here — between whole instructions.
+            g_ctx->reset_pending = false;
+            tamalib_release();
+            tamalib_register_hal(&g_ctx->hal);
+            tamalib_init((u12_t*)g_ctx->rom, NULL, 64000);
+            tamalib_set_speed(1);
+            s = tamalib_get_state();
+            last_tc = *s->tick_counter;
+            memset(g_ctx->framebuffer, 0, sizeof(g_ctx->framebuffer));
+            g_ctx->icons = 0;
+            g_ctx->halted = false;
+            cpu_sync_ref_timestamp();
+        }
         bool max_speed = g_ctx->ff_ticks || g_ctx->turbo;
         if(max_speed) {
             // Batch steps between RTOS calls: per-step thread-flag checks and
@@ -599,23 +614,11 @@ int32_t tamagotchi_p1_app(void* p) {
                         ctx->reset_armed_tick = 0;
                         ctx->ff_ticks = 0;
                         ctx->turbo = false;
-                        tamalib_set_speed(1);
-                        // cpu_reset() leaves interrupt and timer state dirty,
-                        // which hangs the ROM boot — clear it all first.
-                        state_t* s = tamalib_get_state();
-                        *s->tick_counter = 0;
-                        *s->clk_timer_timestamp = 0;
-                        *s->prog_timer_timestamp = 0;
-                        *s->prog_timer_enabled = 0;
-                        *s->prog_timer_data = 0;
-                        *s->prog_timer_rld = 0;
-                        *s->call_depth = 0;
-                        for(size_t i = 0; i < INT_SLOT_NUM; i++) {
-                            s->interrupts[i].factor_flag_reg = 0;
-                            s->interrupts[i].mask_reg = 0;
-                            s->interrupts[i].triggered = 0;
-                        }
-                        cpu_reset();
+                        // A bare cpu_reset() from here leaves the emulator in a
+                        // state that hangs the ROM boot. Instead the worker
+                        // re-inits TamaLIB from scratch (same path as app
+                        // start) at its next safe point between instructions.
+                        ctx->reset_pending = true;
                         Storage* storage = furi_record_open(RECORD_STORAGE);
                         storage_common_remove(storage, TAMA_SAVE_PATH);
                         furi_record_close(RECORD_STORAGE);
