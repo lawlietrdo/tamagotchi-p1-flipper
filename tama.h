@@ -28,6 +28,7 @@ typedef struct {
     bool turbo;
     uint8_t volume; // 0=mute, 1=low, 2=high
     bool vibrate;
+    uint32_t reset_armed_tick; // nonzero = first Down-long seen, awaiting confirm
 } TamaApp;
 
 typedef enum {

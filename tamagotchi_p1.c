@@ -312,6 +312,9 @@ static void tamagotchi_p1_draw_callback(Canvas* const canvas, void* cb_ctx) {
                 100 - (uint8_t)((uint64_t)g_ctx->ff_ticks * 100 /
                                 (g_ctx->ff_total ? g_ctx->ff_total : 1));
             snprintf(status, sizeof(status), "Catching up %u%% OK=skip", pct);
+        } else if(
+            g_ctx->reset_armed_tick && furi_get_tick() - g_ctx->reset_armed_tick < 5000) {
+            snprintf(status, sizeof(status), "Down again = RESET pet");
         } else {
             snprintf(
                 status,
@@ -590,16 +593,38 @@ int32_t tamagotchi_p1_app(void* p) {
                     // Cycle volume: high -> low -> mute
                     ctx->volume = (ctx->volume + 2) % 3;
                 } else if(event.input.key == InputKeyDown && event.input.type == InputTypeLong) {
-                    // Reset pet: fresh egg, delete save
-                    ctx->ff_ticks = 0;
-                    ctx->turbo = false;
-                    tamalib_set_speed(1);
-                    cpu_reset();
-                    Storage* storage = furi_record_open(RECORD_STORAGE);
-                    storage_common_remove(storage, TAMA_SAVE_PATH);
-                    furi_record_close(RECORD_STORAGE);
-                    FURI_LOG_I(TAG, "Pet reset");
-                    tama_log("Pet reset by user");
+                    uint32_t now_tick = furi_get_tick();
+                    if(ctx->reset_armed_tick && now_tick - ctx->reset_armed_tick < 5000) {
+                        // Confirmed: reset pet (fresh egg, delete save)
+                        ctx->reset_armed_tick = 0;
+                        ctx->ff_ticks = 0;
+                        ctx->turbo = false;
+                        tamalib_set_speed(1);
+                        // cpu_reset() leaves interrupt and timer state dirty,
+                        // which hangs the ROM boot — clear it all first.
+                        state_t* s = tamalib_get_state();
+                        *s->tick_counter = 0;
+                        *s->clk_timer_timestamp = 0;
+                        *s->prog_timer_timestamp = 0;
+                        *s->prog_timer_enabled = 0;
+                        *s->prog_timer_data = 0;
+                        *s->prog_timer_rld = 0;
+                        *s->call_depth = 0;
+                        for(size_t i = 0; i < INT_SLOT_NUM; i++) {
+                            s->interrupts[i].factor_flag_reg = 0;
+                            s->interrupts[i].mask_reg = 0;
+                            s->interrupts[i].triggered = 0;
+                        }
+                        cpu_reset();
+                        Storage* storage = furi_record_open(RECORD_STORAGE);
+                        storage_common_remove(storage, TAMA_SAVE_PATH);
+                        furi_record_close(RECORD_STORAGE);
+                        FURI_LOG_I(TAG, "Pet reset");
+                        tama_log("Pet reset by user");
+                    } else {
+                        // First press arms the reset; confirm within 5 s
+                        ctx->reset_armed_tick = now_tick ? now_tick : 1;
+                    }
                 }
 
                 if(event.input.key == InputKeyBack && event.input.type == InputTypeLong) {

@@ -42,7 +42,7 @@ This project does not distribute or link to copyrighted material.
 | Up (long) | Vibration on/off for beeps |
 | Down (short) | Volume: high → low → mute |
 | OK (long, during catch-up) | Skip the remaining catch-up (in-game clock falls behind by the skipped amount) |
-| Down (long) | **Reset pet** (deletes save, fresh egg) |
+| Down (long, twice within 5 s) | **Reset pet** (deletes save, fresh egg) — the second press confirms |
 | Back (long) | Exit (saves automatically) |
 
 The status line under the screen shows turbo (`>>`), volume and vibration,
