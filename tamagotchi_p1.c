@@ -4,6 +4,7 @@
 #include <gui/gui.h>
 #include <input/input.h>
 #include <storage/storage.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stm32wbxx_ll_tim.h>
 #include <tamalib.h>
@@ -49,6 +50,65 @@ typedef struct {
     uint8_t reserved[2];
 } TamaSaveState;
 
+// Persistent event log on SD card, RTC-timestamped, rotated at 64 KB.
+// Lets failures be diagnosed after the fact: the last lines show what the
+// app was doing before it died.
+static void tama_log(const char* fmt, ...) {
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    File* file = storage_file_alloc(storage);
+    if(storage_file_open(file, TAMA_LOG_PATH, FSAM_WRITE, FSOM_OPEN_APPEND)) {
+        if(storage_file_size(file) > 65536) {
+            storage_file_close(file);
+            storage_common_remove(storage, TAMA_LOG_PATH);
+            storage_file_open(file, TAMA_LOG_PATH, FSAM_WRITE, FSOM_OPEN_APPEND);
+        }
+        DateTime dt;
+        furi_hal_rtc_get_datetime(&dt);
+        char line[128];
+        int n = snprintf(
+            line,
+            sizeof(line),
+            "%04u-%02u-%02u %02u:%02u:%02u ",
+            dt.year,
+            dt.month,
+            dt.day,
+            dt.hour,
+            dt.minute,
+            dt.second);
+        va_list args;
+        va_start(args, fmt);
+        n += vsnprintf(line + n, sizeof(line) - n - 1, fmt, args);
+        va_end(args);
+        line[n++] = '\n';
+        storage_file_write(file, line, n);
+    }
+    storage_file_close(file);
+    storage_file_free(file);
+    furi_record_close(RECORD_STORAGE);
+}
+
+// Crash detection: a marker file exists while a session is open and is
+// removed on clean exit. Finding it at startup means the last session died.
+static bool tama_session_open(void) {
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    FileInfo fi;
+    bool was_dirty = storage_common_stat(storage, TAMA_MARKER_PATH, &fi) == FSE_OK;
+    File* f = storage_file_alloc(storage);
+    if(storage_file_open(f, TAMA_MARKER_PATH, FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
+        storage_file_write(f, "x", 1);
+    }
+    storage_file_close(f);
+    storage_file_free(f);
+    furi_record_close(RECORD_STORAGE);
+    return was_dirty;
+}
+
+static void tama_session_close(void) {
+    Storage* storage = furi_record_open(RECORD_STORAGE);
+    storage_common_remove(storage, TAMA_MARKER_PATH);
+    furi_record_close(RECORD_STORAGE);
+}
+
 static void tamagotchi_p1_save_state(void) {
     state_t* s = tamalib_get_state();
     TamaSaveState* save = malloc(sizeof(TamaSaveState));
@@ -87,8 +147,14 @@ static void tamagotchi_p1_save_state(void) {
     if(storage_file_open(file, TAMA_SAVE_PATH, FSAM_WRITE, FSOM_CREATE_ALWAYS)) {
         uint16_t written = storage_file_write(file, save, sizeof(TamaSaveState));
         FURI_LOG_I(TAG, "Saved state: %u bytes", written);
+        if(written != sizeof(TamaSaveState)) {
+            tama_log("ERROR: short save write (%u of %u bytes)", written, sizeof(TamaSaveState));
+        } else {
+            tama_log("Save OK"); // heartbeat: last line before a crash bounds when it happened
+        }
     } else {
         FURI_LOG_E(TAG, "Failed to open save file for writing");
+        tama_log("ERROR: could not open save file for writing");
     }
     storage_file_close(file);
     storage_file_free(file);
@@ -145,6 +211,7 @@ static void tamagotchi_p1_load_state(void) {
         cpu_sync_ref_timestamp();
         cpu_refresh_hw();
         FURI_LOG_I(TAG, "Loaded saved state");
+        tama_log("Load: state restored (v%lu)", save->version);
 
         if(is_v2) {
             g_ctx->volume = (save->volume <= 2) ? save->volume : 2;
@@ -160,11 +227,13 @@ static void tamagotchi_p1_load_state(void) {
                     g_ctx->ff_total = g_ctx->ff_ticks;
                     tamalib_set_speed(0);
                     FURI_LOG_I(TAG, "Catching up %lu seconds", elapsed);
+                    tama_log("Catch-up: %lu s", elapsed);
                 }
             }
         }
     } else {
         FURI_LOG_I(TAG, "No valid save found, starting fresh");
+        tama_log("Load: no valid save, fresh start");
     }
     free(save);
 }
@@ -404,7 +473,16 @@ int32_t tamagotchi_p1_app(void* p) {
 
     TamaApp* ctx = malloc(sizeof(TamaApp));
     g_state_mutex = furi_mutex_alloc(FuriMutexTypeRecursive);
+
+    if(tama_session_open()) {
+        tama_log("WARN: previous session did not exit cleanly (crash or power loss)");
+    }
+    tama_log("App start");
+
     tamagotchi_p1_init(ctx);
+    if(ctx->rom == NULL) {
+        tama_log("ERROR: ROM not found or unreadable");
+    }
 
     FuriMessageQueue* event_queue = furi_message_queue_alloc(8, sizeof(TamaEvent));
 
@@ -482,6 +560,7 @@ int32_t tamagotchi_p1_app(void* p) {
                     storage_common_remove(storage, TAMA_SAVE_PATH);
                     furi_record_close(RECORD_STORAGE);
                     FURI_LOG_I(TAG, "Pet reset");
+                    tama_log("Pet reset by user");
                 }
 
                 if(event.input.key == InputKeyBack && event.input.type == InputTypeLong) {
@@ -512,6 +591,9 @@ int32_t tamagotchi_p1_app(void* p) {
     furi_mutex_free(g_state_mutex);
     tamagotchi_p1_deinit(ctx);
     free(ctx);
+
+    tama_log("App exit (clean)");
+    tama_session_close();
 
     return 0;
 }
