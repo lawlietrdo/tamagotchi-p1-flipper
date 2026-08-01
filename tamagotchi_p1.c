@@ -296,7 +296,7 @@ static int32_t tamagotchi_p1_worker(void* context) {
 
             // At max speed (turbo/catch-up) wait_for_cycles never sleeps, so the
             // mutex is never released and the GUI/input starve. Yield regularly.
-            if(++yield_counter >= 512) {
+            if(++yield_counter >= 4096) {
                 yield_counter = 0;
                 furi_mutex_release(mutex);
                 furi_delay_tick(1);
