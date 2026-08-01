@@ -311,7 +311,7 @@ static void tamagotchi_p1_draw_callback(Canvas* const canvas, void* cb_ctx) {
             uint8_t pct =
                 100 - (uint8_t)((uint64_t)g_ctx->ff_ticks * 100 /
                                 (g_ctx->ff_total ? g_ctx->ff_total : 1));
-            snprintf(status, sizeof(status), "Catching up... %u%%", pct);
+            snprintf(status, sizeof(status), "Catching up %u%% OK=skip", pct);
         } else {
             snprintf(
                 status,
@@ -565,7 +565,17 @@ int32_t tamagotchi_p1_app(void* p) {
                     }
                 }
 
-                if(event.input.key == InputKeyUp && event.input.type == InputTypeShort) {
+                if(event.input.key == InputKeyOk && event.input.type == InputTypeLong &&
+                   ctx->ff_ticks) {
+                    // Skip the rest of the catch-up: play now, at the cost of
+                    // the in-game clock falling behind by the skipped amount.
+                    uint32_t skipped_s = ctx->ff_ticks / TAMA_TICK_FREQ;
+                    ctx->ff_ticks = 0;
+                    tamalib_set_speed(ctx->turbo ? 0 : 1);
+                    cpu_sync_ref_timestamp();
+                    tamagotchi_p1_save_state();
+                    tama_log("Catch-up skipped by user (%lu s discarded)", skipped_s);
+                } else if(event.input.key == InputKeyUp && event.input.type == InputTypeShort) {
                     // Toggle turbo
                     ctx->turbo = !ctx->turbo;
                     if(ctx->ff_ticks == 0) {

@@ -41,6 +41,7 @@ This project does not distribute or link to copyrighted material.
 | Up (short) | Turbo on/off (max-speed emulation) |
 | Up (long) | Vibration on/off for beeps |
 | Down (short) | Volume: high → low → mute |
+| OK (long, during catch-up) | Skip the remaining catch-up (in-game clock falls behind by the skipped amount) |
 | Down (long) | **Reset pet** (deletes save, fresh egg) |
 | Back (long) | Exit (saves automatically) |
 
