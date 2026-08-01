@@ -47,7 +47,41 @@ This project does not distribute or link to copyrighted material.
 The status line under the screen shows turbo (`>>`), volume and vibration,
 or catch-up progress (`Catching up... N%`).
 
-## Features
+## How to play
+
+This is the real 1996 Tamagotchi, so it plays exactly like the original
+keychain. On first launch (or after a reset) you set the clock — **A**
+changes the value, **B** confirms — and an egg hatches about 5 minutes
+later (tip: turbo makes the wait instant).
+
+All menus follow the same rhythm: **A** moves / changes option, **B**
+confirms, **C** cancels.
+
+The 8 icons are laid out in two columns to the right of the LCD.
+Inner column, top to bottom:
+
+| Icon | What it does |
+|---|---|
+| **Food** (fork & knife) | Feed: **A** toggles rice (fills Hunger hearts) / snack (raises Happy but adds weight), **B** feeds, **C** exits. |
+| **Light** | Turn the light off when your pet falls asleep, back on when it wakes. Leaving it on while sleeping leads to sickness. |
+| **Game** (ball) | Mini-game, 5 rounds: guess which way the pet will look — **A** = left, **B** = right. Win 3+ rounds to raise Happy hearts (and lose weight). **C** quits. |
+| **Medicine** (syringe) | Use when the skull icon appears. Sometimes takes 2–3 doses. |
+
+Outer column, top to bottom:
+
+| Icon | What it does |
+|---|---|
+| **Bathroom** (duck) | Clean up droppings. Leaving them around causes sickness. |
+| **Meter** (face) | Status pages (**B** to flip): age/weight, discipline, Hunger hearts, Happy hearts. |
+| **Discipline** (megaphone) | Scold when the pet beeps for attention while needing nothing (all hearts full). Builds the discipline bar. |
+| **Attention** (crying face) | Lights up when the pet needs something — check the meter to see what. |
+
+**The care loop:** when it beeps, check what it needs (hunger, happiness,
+droppings, light, sickness) and take care of it. How well you care —
+hearts kept full, quick cleanups, proper discipline — decides which
+character it evolves into. Neglect it for too long and it dies, exactly
+like in 1996; with real-time catch-up enabled, time passes even while the
+app is closed, so don't disappear for a week.
 
 ### From GMMan's original emulator
 - Full E0C6S46 emulation via TamaLIB: the real 1996 game with its sprites,
