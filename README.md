@@ -94,11 +94,15 @@ app is closed, so don't disappear for a week.
   and restored on launch. Versioned v2 format with magic header;
   backward-compatible with v1 saves.
 - **Real-time catch-up** — the save records the RTC time; on relaunch, the
-  time that passed while the app was closed is emulated at max speed
-  (capped at 6 h per launch). Your pet "lives" even when you're not
-  watching, like the original keychain. Note: the Flipper does not run apps
-  in the background — while closed there are no alerts; needs pile up and
-  you find them when you return.
+  time that passed while the app was closed is emulated at max speed, so
+  the in-game clock always matches the real one. Your pet "lives" even when
+  you're not watching, like the original keychain. Catch-up is
+  interruptible and lossless: exit (or crash) mid-way and it resumes where
+  it left off next launch. Absences longer than 24 h skip whole days — the
+  P1 only shows time-of-day, so the clock stays exact while your pet is
+  spared days of neglect. Note: the Flipper does not run apps in the
+  background — while closed there are no alerts; needs pile up and you find
+  them when you return.
 - **Turbo** — max-speed emulation at the press of a button (no more waiting
   for hatching or evolutions).
 - **In-app reset** — no file juggling needed.

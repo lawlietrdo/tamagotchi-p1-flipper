@@ -18,7 +18,7 @@ FuriMutex* g_state_mutex;
 #define TAMA_SAVE_VERSION 2u
 #define TAMA_V1_TAIL_SIZE 8u // v2 appended fields not present in v1 saves
 #define TAMA_TICK_FREQ 32768u
-#define TAMA_CATCHUP_MAX_SECONDS (6u * 60u * 60u)
+#define TAMA_SECONDS_PER_DAY 86400u
 
 typedef struct {
     uint32_t magic;
@@ -136,7 +136,9 @@ static void tamagotchi_p1_save_state(void) {
         save->int_vector[i] = s->interrupts[i].vector;
     }
     memcpy(save->memory, s->memory, sizeof(save->memory));
-    save->rtc_epoch = furi_hal_rtc_get_timestamp();
+    // Back-date the epoch by any catch-up still pending, so exiting (or
+    // crashing) mid-catch-up never loses time: next launch resumes it.
+    save->rtc_epoch = furi_hal_rtc_get_timestamp() - g_ctx->ff_ticks / TAMA_TICK_FREQ;
     save->volume = g_ctx->volume;
     save->vibrate = g_ctx->vibrate ? 1 : 0;
     save->reserved[0] = 0;
@@ -221,7 +223,13 @@ static void tamagotchi_p1_load_state(void) {
             uint32_t now = furi_hal_rtc_get_timestamp();
             if(now > save->rtc_epoch) {
                 uint32_t elapsed = now - save->rtc_epoch;
-                if(elapsed > TAMA_CATCHUP_MAX_SECONDS) elapsed = TAMA_CATCHUP_MAX_SECONDS;
+                // The P1 only displays time-of-day, so whole days can be
+                // skipped without desyncing the clock. This bounds catch-up
+                // to <24 h of emulated time no matter how long the absence.
+                if(elapsed >= TAMA_SECONDS_PER_DAY) {
+                    tama_log("Catch-up: skipping %lu whole day(s)", elapsed / TAMA_SECONDS_PER_DAY);
+                    elapsed %= TAMA_SECONDS_PER_DAY;
+                }
                 if(elapsed > 5) {
                     g_ctx->ff_ticks = elapsed * TAMA_TICK_FREQ;
                     g_ctx->ff_total = g_ctx->ff_ticks;
@@ -348,30 +356,43 @@ static int32_t tamagotchi_p1_worker(void* context) {
     while(running) {
         if(furi_thread_flags_get()) {
             running = false;
+            continue;
+        }
+        bool max_speed = g_ctx->ff_ticks || g_ctx->turbo;
+        if(max_speed) {
+            // Batch steps between RTOS calls: per-step thread-flag checks and
+            // bookkeeping cost more than the emulation itself at max speed.
+            for(uint32_t i = 0; i < 256; ++i)
+                tamalib_step();
         } else {
             tamalib_step();
-            uint32_t tc = *s->tick_counter;
-            if(g_ctx->ff_ticks) {
-                uint32_t delta = tc - last_tc;
-                if(delta >= g_ctx->ff_ticks) {
-                    g_ctx->ff_ticks = 0;
-                    tamalib_set_speed(g_ctx->turbo ? 0 : 1);
-                    cpu_sync_ref_timestamp();
-                } else {
-                    g_ctx->ff_ticks -= delta;
-                }
+        }
+        uint32_t tc = *s->tick_counter;
+        if(g_ctx->ff_ticks) {
+            uint32_t delta = tc - last_tc;
+            if(delta >= g_ctx->ff_ticks) {
+                g_ctx->ff_ticks = 0;
+                tamalib_set_speed(g_ctx->turbo ? 0 : 1);
+                cpu_sync_ref_timestamp();
+                tama_log("Catch-up done");
+            } else {
+                g_ctx->ff_ticks -= delta;
             }
-            last_tc = tc;
+        }
+        last_tc = tc;
 
-            // At max speed (turbo/catch-up) wait_for_cycles never sleeps, so the
-            // mutex is never released and the GUI/input starve. Yield regularly.
-            if(++yield_counter >= 4096) {
+        // At max speed (turbo/catch-up) wait_for_cycles never sleeps, so the
+        // mutex is never released and the GUI/input starve. Yield regularly.
+        if(max_speed) {
+            if((yield_counter += 256) >= 8192) {
                 yield_counter = 0;
                 furi_mutex_release(mutex);
                 furi_delay_tick(1);
                 while(furi_mutex_acquire(mutex, FuriWaitForever) != FuriStatusOk)
                     furi_delay_tick(1);
             }
+        } else {
+            yield_counter = 0;
         }
     }
     LL_TIM_DisableCounter(TIM2);
@@ -506,9 +527,17 @@ int32_t tamagotchi_p1_app(void* p) {
             if(furi_mutex_acquire(g_state_mutex, FuriWaitForever) != FuriStatusOk) continue;
 
             if(event.type == EventTypeTick) {
-                view_port_update(view_port);
-                // Periodic autosave every ~2 min (3600 ticks at 30/s)
-                if(ctx->rom != NULL && ctx->ff_ticks == 0 && ++autosave_counter >= 3600) {
+                ++autosave_counter;
+                // During catch-up redraw at ~4 fps instead of 30: the progress
+                // counter doesn't need more, and every redraw steals CPU from
+                // the emulation racing to finish.
+                if(ctx->ff_ticks == 0 || (autosave_counter & 7) == 0) {
+                    view_port_update(view_port);
+                }
+                // Periodic autosave every ~2 min (3600 ticks at 30/s). Runs
+                // during catch-up too: the save back-dates its epoch by the
+                // pending ticks, so a crash mid-catch-up loses nothing.
+                if(ctx->rom != NULL && autosave_counter >= 3600) {
                     autosave_counter = 0;
                     tamagotchi_p1_save_state();
                 }
