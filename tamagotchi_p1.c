@@ -234,7 +234,7 @@ static void tamagotchi_p1_draw_callback(Canvas* const canvas, void* cb_ctx) {
             uint8_t pct =
                 100 - (uint8_t)((uint64_t)g_ctx->ff_ticks * 100 /
                                 (g_ctx->ff_total ? g_ctx->ff_total : 1));
-            snprintf(status, sizeof(status), "Al dia... %u%%", pct);
+            snprintf(status, sizeof(status), "Catching up... %u%%", pct);
         } else {
             snprintf(
                 status,
@@ -275,6 +275,7 @@ static int32_t tamagotchi_p1_worker(void* context) {
     LL_TIM_EnableCounter(TIM2);
     state_t* s = tamalib_get_state();
     uint32_t last_tc = *s->tick_counter;
+    uint32_t yield_counter = 0;
     while(running) {
         if(furi_thread_flags_get()) {
             running = false;
@@ -292,6 +293,16 @@ static int32_t tamagotchi_p1_worker(void* context) {
                 }
             }
             last_tc = tc;
+
+            // At max speed (turbo/catch-up) wait_for_cycles never sleeps, so the
+            // mutex is never released and the GUI/input starve. Yield regularly.
+            if(++yield_counter >= 512) {
+                yield_counter = 0;
+                furi_mutex_release(mutex);
+                furi_delay_tick(1);
+                while(furi_mutex_acquire(mutex, FuriWaitForever) != FuriStatusOk)
+                    furi_delay_tick(1);
+            }
         }
     }
     LL_TIM_DisableCounter(TIM2);

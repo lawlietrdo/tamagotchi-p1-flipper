@@ -1,112 +1,114 @@
-# Tamagotchi P1 Emulator para Flipper Zero — Edición Mejorada
+# Tamagotchi P1 Emulator for Flipper Zero — Improved Edition
 
-Emulador del **Tamagotchi P1 original (1996)** corriendo de forma nativa en el
-Flipper Zero. Este es un fork mejorado del proyecto de
-[GMMan](https://github.com/GMMan/flipperzero-tamagotch-p1), construido sobre
-[TamaLIB](https://github.com/jcrona/tamalib/) de Jean-Christophe Rona, con
-arreglos de compatibilidad para firmware moderno y funcionalidades nuevas
-(guardado, paso del tiempo real, turbo y más).
+Emulator for the **original Tamagotchi P1 (1996)** running natively on the
+Flipper Zero. This is an improved fork of
+[GMMan's port](https://github.com/GMMan/flipperzero-tamagotch-p1), built on
+[TamaLIB](https://github.com/jcrona/tamalib/) by Jean-Christophe Rona, with
+modern-firmware compatibility fixes and new features (auto-save, real-time
+catch-up, turbo mode and more).
 
-Compilado y probado contra firmware oficial **1.4.3 (API 87.1)**.
+Built and tested against official firmware **1.4.3 (API 87.1)**.
 
-## ⚠️ Sobre la ROM (léelo primero)
+## ⚠️ About the ROM (read this first)
 
-Este emulador necesita la ROM del Tamagotchi P1, que es **propiedad de Bandai
-y NO se incluye en este repositorio** (ni debe subirse nunca: está en el
-`.gitignore` a propósito). Para conseguirla:
+This emulator requires the Tamagotchi P1 ROM, which is **owned by Bandai and
+NOT included in this repository** (and must never be committed — it is
+`.gitignore`d on purpose). To get it:
 
-1. Busca el dump conocido como `tama.b` (12.288 bytes, el mismo set que usa
-   MAME como "Bandai Tamagotchi", `tama.zip`).
-2. Renómbralo a `rom.bin`.
-3. Cópialo a la microSD del Flipper en la carpeta `tama_p1/`
-   (ruta final: `SD:/tama_p1/rom.bin`).
+1. Find the dump known as `tama.b` (12,288 bytes, the same set MAME uses as
+   "Bandai Tamagotchi", `tama.zip`).
+2. Rename it to `rom.bin`.
+3. Copy it to the Flipper's microSD under the `tama_p1/` folder
+   (final path: `SD:/tama_p1/rom.bin`).
 
-La vía estrictamente legal es dumpear la ROM de un dispositivo original que
-poseas. Este proyecto no distribuye ni enlaza material con copyright.
+The strictly legal route is dumping the ROM from an original device you own.
+This project does not distribute or link to copyrighted material.
 
-## Instalación
+## Installation
 
-1. Copia `dist/tamagotchi_p1.fap` a la microSD en `apps/Games/` (con qFlipper,
-   o directamente con `ufbt launch` si compilas desde código).
-2. Coloca la ROM como se explica arriba.
-3. En el Flipper: `Apps → Games → Tamagotchi`.
+1. Copy `dist/tamagotchi_p1.fap` to the microSD under `apps/Games/` (via
+   qFlipper, or directly with `ufbt launch` if building from source).
+2. Place the ROM as described above.
+3. On the Flipper: `Apps → Games → Tamagotchi`.
 
-## Controles
+## Controls
 
-| Botón | Función |
+| Button | Function |
 |---|---|
-| Izquierda | Botón A (mover selección) |
-| OK | Botón B (confirmar) |
-| Derecha | Botón C (cancelar) |
-| Arriba (corto) | Turbo on/off (emulación a máxima velocidad) |
-| Arriba (largo) | Vibración on/off en los pitidos |
-| Abajo (corto) | Volumen: alto → bajo → silencio |
-| Abajo (largo) | **Reiniciar la mascota** (borra la partida, huevo nuevo) |
-| Atrás (largo) | Salir (guarda automáticamente) |
+| Left | A button (move selection) |
+| OK | B button (confirm) |
+| Right | C button (cancel) |
+| Up (short) | Turbo on/off (max-speed emulation) |
+| Up (long) | Vibration on/off for beeps |
+| Down (short) | Volume: high → low → mute |
+| Down (long) | **Reset pet** (deletes save, fresh egg) |
+| Back (long) | Exit (saves automatically) |
 
-La línea de estado bajo la pantalla muestra turbo (`>>`), volumen y vibración,
-o el progreso de la puesta al día (`Al dia... N%`).
+The status line under the screen shows turbo (`>>`), volume and vibration,
+or catch-up progress (`Catching up... N%`).
 
-## Funcionalidades
+## Features
 
-### Del emulador original de GMMan
-- Emulación completa del E0C6S46 vía TamaLIB: el juego real de 1996 con sus
-  sprites, evoluciones, cuidados y muertes.
-- Sonido con las frecuencias originales.
+### From GMMan's original emulator
+- Full E0C6S46 emulation via TamaLIB: the real 1996 game with its sprites,
+  evolutions, care mechanics and deaths.
+- Sound with the original frequencies.
 
-### Añadidas en este fork
-- **Guardado automático** — al salir y cada ~2 minutos se persiste el estado
-  completo del emulador (CPU, timers, interrupciones, memoria) en
-  `SD:/tama_p1/save.bin` y se restaura al abrir. Formato v2 con
-  magic/versión; retrocompatible con saves v1.
-- **Paso del tiempo real (catch-up)** — el save registra la hora del RTC; al
-  reabrir, el tiempo transcurrido con la app cerrada se emula a máxima
-  velocidad (limitado a 6 h por apertura). Tu mascota "vive" aunque no la
-  mires, como el llavero original. Nota: el Flipper no ejecuta apps en
-  segundo plano — con la app cerrada no hay avisos; las necesidades se
-  acumulan y las encuentras al volver.
-- **Turbo** — emulación a máxima velocidad con un botón (eclosiones y
-  evoluciones sin esperas).
-- **Reinicio desde la app** — sin tocar archivos.
-- **Volumen en 3 niveles + silencio** y **vibración opcional** en los pitidos.
-- **Pantalla ampliada** — LCD a escala 3x (96x48) con los 8 iconos en dos
-  columnas a la derecha y línea de estado.
+### Added in this fork
+- **Auto-save** — on exit and every ~2 minutes, the full emulator state
+  (CPU, timers, interrupts, memory) is persisted to `SD:/tama_p1/save.bin`
+  and restored on launch. Versioned v2 format with magic header;
+  backward-compatible with v1 saves.
+- **Real-time catch-up** — the save records the RTC time; on relaunch, the
+  time that passed while the app was closed is emulated at max speed
+  (capped at 6 h per launch). Your pet "lives" even when you're not
+  watching, like the original keychain. Note: the Flipper does not run apps
+  in the background — while closed there are no alerts; needs pile up and
+  you find them when you return.
+- **Turbo** — max-speed emulation at the press of a button (no more waiting
+  for hatching or evolutions).
+- **In-app reset** — no file juggling needed.
+- **3 volume levels + mute** and **optional vibration** on beeps.
+- **Bigger display** — LCD at 3x scale (96x48) with the 8 icons in two
+  columns on the right and a status line.
 
-### Arreglos de compatibilidad con firmware moderno
-El código original (2022) no funciona en firmwares actuales. Este fork corrige:
-- **TIM2 sin reloj**: los firmwares modernos apagan los periféricos por
-  defecto; sin `furi_hal_bus_enable(FuriHalBusTIM2)` la emulación queda
-  congelada y la pantalla en blanco.
-- **Crash del altavoz**: `furi_hal_speaker_start` sin `acquire` previo provoca
-  `furi_check failed` al primer pitido en firmware moderno.
-- Migración de API: `m-string` → `FuriString`, callbacks con firma `void*`.
-- Pila del hilo de emulación ampliada de 1 KB a 4 KB.
+### Modern firmware compatibility fixes
+The original 2022 code does not work on current firmware. This fork fixes:
+- **TIM2 without clock**: modern firmware gates peripheral clocks by
+  default; without `furi_hal_bus_enable(FuriHalBusTIM2)` the emulation
+  freezes and the screen stays blank.
+- **Speaker crash**: calling `furi_hal_speaker_start` without acquiring the
+  speaker first triggers `furi_check failed` on the first beep on modern
+  firmware.
+- API migration: `m-string` → `FuriString`, callbacks with `void*`
+  signatures.
+- Emulation thread stack increased from 1 KB to 4 KB.
 
-## Compilar desde código
+## Building from source
 
 ```
 pip install ufbt
-ufbt update --channel=release   # SDK del firmware release actual
-ufbt                            # genera dist/tamagotchi_p1.fap
-ufbt launch                     # compila, instala por USB y lanza
+ufbt update --channel=release   # SDK for the current release firmware
+ufbt                            # produces dist/tamagotchi_p1.fap
+ufbt launch                     # build, install over USB and launch
 ```
 
-## Créditos
+## Credits
 
 - **[Jean-Christophe Rona (jcrona)](https://github.com/jcrona/tamalib/)** —
-  autor de TamaLIB, la librería de emulación del E0C6S46 que hace posible
-  todo esto, y de MCUGotchi.
-- **[GMMan](https://github.com/GMMan/flipperzero-tamagotch-p1)** — autor del
-  port original a Flipper Zero del que parte este fork.
-- Equipo de **Flipper Devices** — por el SDK y ufbt.
-- Mejoras de este fork: luigi.
+  author of TamaLIB, the E0C6S46 emulation library that makes all of this
+  possible, and of MCUGotchi.
+- **[GMMan](https://github.com/GMMan/flipperzero-tamagotch-p1)** — author of
+  the original Flipper Zero port this fork is based on.
+- The **Flipper Devices** team — for the SDK and ufbt.
+- Improvements in this fork: luigi.
 
-## Licencia
+## License
 
-Este proyecto es software libre bajo **GPL-2.0** (ver [LICENSE](LICENSE)),
-la misma licencia de TamaLIB, cuyos términos obligan a mantener las obras
-derivadas bajo GPL. El código de TamaLIB incluido en `lib/tamalib/` conserva
-su copyright original © Jean-Christophe Rona.
+This project is free software under **GPL-2.0** (see [LICENSE](LICENSE)),
+the same license as TamaLIB, whose terms require derivative works to remain
+under the GPL. The TamaLIB code included in `lib/tamalib/` keeps its
+original copyright © Jean-Christophe Rona.
 
-La ROM del Tamagotchi es © Bandai y queda expresamente fuera de esta licencia
-y de este repositorio.
+The Tamagotchi ROM is © Bandai and is expressly outside this license and
+this repository.
